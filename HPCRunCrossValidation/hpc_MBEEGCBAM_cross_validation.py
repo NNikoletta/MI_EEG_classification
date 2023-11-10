@@ -1,0 +1,360 @@
+import mne
+from mne.datasets import eegbci
+from mne.io import read_raw_edf
+from sklearn import model_selection as ms
+from sklearn.preprocessing import MinMaxScaler
+from tensorflow.python.keras.utils.np_utils import to_categorical
+from tensorflow import keras
+from tensorflow import reduce_mean, expand_dims, reduce_max
+from keras.layers import Dense, Activation, Concatenate, Multiply, Reshape
+from keras.layers import Conv2D, GlobalMaxPooling2D, GlobalAveragePooling2D
+from keras.constraints import max_norm
+from keras.models import Model
+from keras.layers import AveragePooling2D
+from keras.layers import SeparableConv2D, DepthwiseConv2D
+from keras.layers import BatchNormalization, Dropout
+from keras.layers import Input, Flatten
+from keras.activations import elu
+from sklearn.model_selection import KFold
+import numpy as np
+import statistics
+import time
+
+
+def FiltersAttention(input, ratio=16):  # x  = input feature map CHANNEL ATTENTION OF A CBAM
+    """
+    The Channel Attention Module of the CBAM, the name has been changed to FiltersAttention, because the dimensions of
+    the EEG signals are not the same as the dimensions of an image. In this study, the last dimension, is the dimension
+    of the filters
+    :param input: input EEG signals
+    :param ratio: reduction ratio
+    :return: weighted input
+    """
+    bm, _, _, filters = input.shape
+    # Shared layers
+    l1 = Dense(filters//ratio, activation='relu', use_bias=False)
+    l2 = Dense(filters, use_bias=False)
+
+    # Global Average Pooling
+    x1 = GlobalAveragePooling2D(data_format='channels_last')(input)
+    x1 = l1(x1)
+    x1 = l2(x1)
+
+    # Global Max Pool
+    x2 = GlobalMaxPooling2D(data_format='channels_last')(input)
+    x2 = l1(x2)
+    x2 = l2(x2)
+
+    out = x1 + x2
+    out = Activation("sigmoid")(out)
+    out = Multiply()([input, out])
+
+    return out
+
+
+def SpatialAttention(input, kernel_size=7):  # x  = input feature map SPATIAL ATTENTION OF A CBAM
+    """
+    The Spatial Attention Module of the CBAM
+    :param input: EEG signals
+    :param kernel_size: size of the Conv2D layer's kernel
+    :return: weighted input
+    """
+    # Average Pooling
+    x1 = reduce_mean(input, axis=-1)
+    x1 = expand_dims(x1, axis=-1)
+
+    # Max Pooling
+    x2 = reduce_max(input, axis=-1)
+    x2 = expand_dims(x2, axis=-1)
+
+    # Concatenate
+    out = Concatenate()([x1, x2])
+
+    # Conv layer
+    out = Conv2D(1, kernel_size=kernel_size, padding='same', activation='sigmoid')(out)
+    out = Multiply()([input, out])
+
+    return out
+
+
+def cbam(x, ratio=8, kernel_size=7):
+    x = FiltersAttention(x, ratio)
+    x = SpatialAttention(x, kernel_size)
+    return x
+
+
+class Network:
+    def __init__(self, batch_size=16, ep=10):
+        self.batch_size = batch_size
+        self.ep = ep
+        self.model = keras.Sequential()
+        self.build_model()
+
+    def build_model(self):
+        pass
+
+    def train(self, x_train, train_label, x_valid, valid_label):
+        self.model.compile(loss=keras.losses.categorical_crossentropy, optimizer=keras.optimizers.Adam(),
+                           metrics=['accuracy'])
+        self.model.summary()
+        self.model.fit(x_train, train_label, batch_size=self.batch_size, epochs=self.ep, verbose=2,
+                       validation_data=(x_valid, valid_label))
+
+    def evaluate(self, x_test, y_test_one_hot):
+        test_loss, test_acc = self.model.evaluate(x_test, y_test_one_hot, verbose=2)
+        print('Test loss:', test_loss)
+        print('Test accuracy:', test_acc)
+        return test_loss, test_acc
+
+    def predict(self, x_test):
+        predicted_classes = self.model.predict(x_test)
+        predicted_classes = np.argmax(np.round(predicted_classes), axis=1)
+
+        return predicted_classes
+
+
+
+class MBEEGCBAM(Network):
+    def __init__(self, batch_size=16, ep=10, channels=64):
+        self.channels = channels
+        super().__init__(batch_size, ep)
+
+    def build_model(self):
+        input_main = Input((64, 321, 1))
+        branch1 = Conv2D(4, kernel_size=(1, 16), use_bias=False, activation='linear', input_shape=(64, 321, 1),
+                         padding='same')(input_main)
+        branch1 = BatchNormalization()(branch1)
+        branch1 = DepthwiseConv2D(kernel_size=(self.channels, 1), use_bias=False, activation='linear', padding='valid',
+                                  depth_multiplier=2, depthwise_constraint=max_norm(1))(branch1)
+        branch1 = BatchNormalization()(branch1)
+        branch1 = Activation(elu)(branch1)
+        branch1 = AveragePooling2D(pool_size=(1, 4))(branch1)
+
+        branch1 = SeparableConv2D(8, kernel_size=(1, 16), use_bias=False, activation='linear', padding='same')(branch1)
+        branch1 = BatchNormalization()(branch1)
+        branch1 = Activation(elu)(branch1)
+        branch1 = AveragePooling2D(pool_size=(1, 8))(branch1)
+
+        cbam1 = cbam(branch1, ratio=2, kernel_size=2)
+        flatten1 = Flatten()(cbam1)
+
+        # --------------------------------------------------------------------------------------------------------------
+        branch2 = Conv2D(8, kernel_size=(1, 32), use_bias=False, activation='linear', input_shape=(64, 321, 1),
+                         padding='same')(input_main)
+        branch2 = BatchNormalization()(branch2)
+        branch2 = DepthwiseConv2D(kernel_size=(self.channels, 1), use_bias=False, activation='linear', padding='valid',
+                                  depth_multiplier=2, depthwise_constraint=max_norm(1))(branch2)
+        branch2 = BatchNormalization()(branch2)
+        branch2 = Activation(elu)(branch2)
+        branch2 = AveragePooling2D(pool_size=(1, 4))(branch2)
+        branch2 = Dropout(0.1)(branch2)
+
+        branch2 = SeparableConv2D(16, kernel_size=(1, 16), use_bias=False, activation='linear', padding='same')(branch2)
+        branch2 = BatchNormalization()(branch2)
+        branch2 = Activation(elu)(branch2)
+        branch2 = AveragePooling2D(pool_size=(1, 8))(branch2)
+        branch2 = Dropout(0.1)(branch2)
+
+        cbam2 = cbam(branch2, ratio=8, kernel_size=4)
+        flatten2 = Flatten()(cbam2)
+        # --------------------------------------------------------------------------------------------------------------
+        branch3 = Conv2D(16, kernel_size=(1, 64), use_bias=False, activation='linear', input_shape=(64, 321, 1),
+                         padding='same')(input_main)
+        branch3 = BatchNormalization()(branch3)
+        branch3 = DepthwiseConv2D(kernel_size=(self.channels, 1), use_bias=False, activation='linear', padding='valid',
+                                  depth_multiplier=2, depthwise_constraint=max_norm(1))(branch3)
+        branch3 = BatchNormalization()(branch3)
+        branch3 = Activation(elu)(branch3)
+        branch3 = AveragePooling2D(pool_size=(1, 4))(branch3)
+        branch3 = Dropout(0.2)(branch3)
+
+        branch3 = SeparableConv2D(32, kernel_size=(1, 16), use_bias=False, activation='linear', padding='same')(branch3)
+        branch3 = BatchNormalization()(branch3)
+        branch3 = Activation(elu)(branch3)
+        branch3 = AveragePooling2D(pool_size=(1, 8))(branch3)
+        branch3 = Dropout(0.2)(branch3)
+
+        cbam3 = cbam(branch3, ratio=8, kernel_size=2)
+        flatten3 = Flatten()(cbam3)
+        # --------------------------------------------------------------------------------------------------------------
+
+        flatten_out = Concatenate()([flatten1, flatten2, flatten3])
+        softmax_out = Dense(4, activation='softmax', kernel_constraint=max_norm(0.25))(flatten_out)
+
+        self.model = Model(inputs=input_main, outputs=softmax_out)
+        return self.model
+
+
+def create_sets(x_train, y_train, x_test, y_test):
+    for i in range(x_train.shape[0]):  # normalizing the train data
+        scaler = MinMaxScaler(feature_range=(0, 1))
+        scaler.fit(x_train[i])
+        x_train[i] = scaler.transform(x_train[i])
+
+    for i in range(x_test.shape[0]):  # normalizing the test data
+        scaler = MinMaxScaler(feature_range=(0, 1))
+        scaler.fit(x_test[i])
+        x_test[i] = scaler.transform(x_test[i])
+
+    x_train = x_train.reshape(-1, x_train.shape[1], x_train.shape[2], 1)  # reshaping the train data
+    x_test = x_test.reshape(-1, x_test.shape[1], x_test.shape[2], 1)  # reshaping the test data
+
+    y_train_one_hot = to_categorical(y_train)
+    test_label = to_categorical(y_test)
+
+    x_train, x_valid, train_label, valid_label = ms.train_test_split(x_train, y_train_one_hot, test_size=0.2, random_state=0)  # train and validate
+
+    return x_train, train_label, x_valid, valid_label, x_test, test_label, y_test
+
+
+def load_cross_validation(n_folds):
+    runs = [4, 6, 8, 10, 12, 14]  # use only hand and feet motor imagery runs
+
+    x = []  # contains the recordings by subject, so this is a list consisting of 105 elements
+    y = []
+
+    x_train = []
+    y_train = []
+
+    x_test = []
+    y_test = []
+
+    for subject in range(1, 110):
+        if subject != 88 and subject != 89 and subject != 92 and subject != 100:
+            save_to = 'datasets'
+            eegbci.load_data(subject, runs, save_to, verbose=0)  # downloading the files
+
+            x_tmp = []  # contains the recordings of one subject
+            y_tmp = []
+
+            for record in runs:
+                s = '{:0>3}'.format(subject)
+                r = '{:0>2}'.format(record)
+                filepath = f'datasets/MNE-eegbci-data/files/eegmmidb/1.0.0/S{s}/S{s}R{r}.edf'
+                raw = read_raw_edf(filepath, verbose=0)  # getting raw data
+
+                event_dict_raw = {
+                    'T0': 0,
+                    'T1': 1,
+                    'T2': 2
+                }
+                events_tmp, event_ids_tmp = mne.events_from_annotations(raw, event_id=event_dict_raw, verbose=0)  # events and their ids
+                events_tmp = mne.pick_events(events_tmp, exclude=0)  # excluding rest, rest_id=0
+                old_annotations = mne.annotations_from_events(events_tmp, 160)
+
+                if record == 4 or record == 8 or record == 12:
+                    annotation_keys_even = {
+                        '1': 'left',
+                        '2': 'right'
+                    }
+
+                    event_dict = {
+                        'left': 0,
+                        'right': 1
+                    }
+                    new_annotations = old_annotations.rename(mapping=annotation_keys_even)
+                    raw.set_annotations(new_annotations)
+                    events, event_ids = mne.events_from_annotations(raw, event_id=event_dict, verbose=0)
+
+                    epoch = mne.Epochs(raw, events, event_id=event_dict, tmin=-0.1, tmax=1.9, verbose=0)
+                    epoch.equalize_event_counts()
+
+                if record == 6 or record == 10 or record == 14:
+                    annotation_keys_odd = {
+                        '1': 'fists',
+                        '2': 'feet'
+                    }
+
+                    event_dict = {
+                        'fists': 2,
+                        'feet': 3
+                    }
+                    new_annotations = old_annotations.rename(mapping=annotation_keys_odd)
+                    raw.set_annotations(new_annotations)
+                    events, event_ids = mne.events_from_annotations(raw, event_id=event_dict, verbose=0)
+
+                    epoch = mne.Epochs(raw, events, event_id=event_dict, tmin=-0.1, tmax=1.9, verbose=0)
+                    epoch.equalize_event_counts()
+
+                x_tmp.append(epoch.get_data())
+                y_tmp.append(epoch.events[:, 2])
+
+            x_tmp = np.concatenate(x_tmp)  # the recordings of one subject are concatenated
+            y_tmp = np.concatenate(y_tmp)
+
+            x.append(x_tmp)
+            y.append(y_tmp)
+
+    kf = KFold(n_splits=n_folds, random_state=None, shuffle=False)
+
+    for i, (train_index, test_index) in enumerate(kf.split(x)):
+        x_train_tmp = []
+        y_train_tmp = []
+
+        x_test_tmp = []
+        y_test_tmp = []
+
+        for index in train_index:
+            x_train_tmp.append(x[index])
+            y_train_tmp.append(y[index])
+
+        for index in test_index:
+            x_test_tmp.append(x[index])
+            y_test_tmp.append(y[index])
+
+        x_train.append(np.concatenate(x_train_tmp, axis=0))
+        y_train.append(np.concatenate(y_train_tmp))
+
+        x_test.append(np.concatenate(x_test_tmp, axis=0))
+        y_test.append(np.concatenate(y_test_tmp))
+
+    return x_train, y_train, x_test, y_test
+
+
+def run_cv_MBEEGCBAM(n_folds=5, ep=10):
+    x_train_cv, y_train_cv, x_test_cv, y_test_cv = load_cross_validation(n_folds)
+
+    test_losses = []
+    test_accuracies = []
+
+    for i in range(n_folds):
+        x_train, train_label, x_valid, valid_label, x_test, test_label, y_test = create_sets(x_train_cv[i], y_train_cv[i], x_test_cv[i], y_test_cv[i])
+        network = MBEEGCBAM(ep=ep)
+        network.train(x_train, train_label, x_valid, valid_label)
+        test_loss, test_acc = network.evaluate(x_test, test_label)
+        predicted_classes = network.predict(x_test)
+
+        test_losses.append(test_loss)
+        test_accuracies.append(test_acc)
+
+        fold = '{:0>2}'.format(i)
+
+        with open(f'outputs/y_test_MBEEGCBAM_{fold}_hpc.txt', 'w') as f:
+            for k in range(len(y_test)):
+                f.write(str(y_test[k]) + '\n')
+        f.close()
+
+        with open(f'outputs/predicted_classes_MBEEGCBAM_{fold}_hpc.txt', 'w') as f1:
+            for k in range(len(predicted_classes)):
+                f1.write(str(predicted_classes[k]) + '\n')
+        f1.close()
+
+        with open(f'outputs/test_results_MBEEGCBAM_{fold}_hpc.txt', 'w') as f2:
+            f2.write("Test loss: " + str(test_loss) + " Test acc: " + str(test_acc) + '\n')
+        f2.close()
+
+    print("Mean loss:", statistics.mean(test_losses))
+    print("Mean accuracy:", statistics.mean(test_accuracies))
+
+
+start_time = time.time()
+start_time_cpu = time.process_time()
+
+run_cv_MBEEGCBAM(5, 10)
+
+end_time = time.time()
+end_time_cpu = time.process_time()
+
+with open(f'outputs/runtime_MBEEGCBAM_hpc.txt', 'w') as f3:
+    f3.write("Wall time: " + str(end_time-start_time) + " CPU time: " + str(end_time_cpu-start_time_cpu) + '\n')
+f3.close()

@@ -45,3 +45,34 @@ def visualize(y_test, predicted_classes, network_name=None, fold=None):
         else:
             fname = path + network_name + f'/{network_name}_figures/{network_name}_cv_{fold}.jpg'
         plt.savefig(fname)
+
+
+def plot_accuracy_and_loss(history, networkname, save=False, fname=None):
+    # Accuracy
+    plt.figure(figsize=(9, 6))
+    sn.set(font_scale=1.2)
+    plt.plot(history.history['accuracy'])
+    plt.plot(history.history['val_accuracy'])
+    plt.title(networkname+' Accuracy')
+    plt.ylabel('Accuracy')
+    plt.xlabel('Epoch')
+    plt.legend(['train', 'validation'], loc='upper left')
+    if save:
+        plt.savefig(fname+'_accuracy.jpg')
+    else:
+        plt.show()
+
+    # Loss
+    plt.figure(figsize=(9, 6))
+    sn.set(font_scale=1.2)
+    plt.plot(history.history['loss'])
+    plt.plot(history.history['val_loss'])
+    plt.title(networkname+' Loss')
+    plt.ylabel('Loss')
+    plt.xlabel('Epoch')
+    plt.legend(['train', 'validation'], loc='upper left')
+    if save:
+        plt.savefig(fname + '_loss.jpg')
+    else:
+        plt.show()
+

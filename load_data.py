@@ -31,7 +31,7 @@ def load_random(n_subjects):  # load the data of n_subjects number of subjects i
 
     for subject in range(1, n_subjects+1):
         if subject != 88 and subject != 89 and subject != 92 and subject != 100:
-            save_to = 'C:/Users/Acer/Documents/5.felev/pythonProject/datasets'
+            save_to = 'datasets'
             eegbci.load_data(subject, runs, save_to, verbose=0)  # downloading the files
             x_tmp = []
             y_tmp = []
@@ -39,7 +39,7 @@ def load_random(n_subjects):  # load the data of n_subjects number of subjects i
             for record in runs:
                 s = '{:0>3}'.format(subject)
                 r = '{:0>2}'.format(record)
-                filepath = f'C:/Users/Acer/Documents/5.felev/pythonProject/datasets/MNE-eegbci-data/files/eegmmidb/1.0.0/S{s}/S{s}R{r}.edf'
+                filepath = f'datasets/MNE-eegbci-data/files/eegmmidb/1.0.0/S{s}/S{s}R{r}.edf'
                 raw = read_raw_edf(filepath, verbose=0)  # getting raw data
                 events, event_ids = mne.events_from_annotations(raw, verbose=0)  # events and their ids
                 events = mne.pick_events(events, exclude=1)  # excluding rest, rest_id=1
@@ -86,7 +86,7 @@ def load_by_sets(n_subjects_train, n_subjects_valid, n_subjects_test):
 
     for subject in range(1, n_subjects_train+n_subjects_test+n_subjects_valid+1):
         if subject != 88 and subject != 89 and subject != 92 and subject != 100:
-            save_to = 'C:/Users/Acer/Documents/5.felev/pythonProject/datasets'
+            save_to = 'datasets'
             eegbci.load_data(subject, runs, save_to, verbose=0)  # downloading the files
             x_tmp_train = []
             y_tmp_train = []
@@ -100,7 +100,7 @@ def load_by_sets(n_subjects_train, n_subjects_valid, n_subjects_test):
             for record in runs:
                 s = '{:0>3}'.format(subject)
                 r = '{:0>2}'.format(record)
-                filepath = f'C:/Users/Acer/Documents/5.felev/pythonProject/datasets/MNE-eegbci-data/files/eegmmidb/1.0.0/S{s}/S{s}R{r}.edf'
+                filepath = f'datasets/MNE-eegbci-data/files/eegmmidb/1.0.0/S{s}/S{s}R{r}.edf'
                 raw = read_raw_edf(filepath, verbose=0)  # getting raw data
                 events, event_ids = mne.events_from_annotations(raw, verbose=0)  # events and their ids
                 events = mne.pick_events(events, exclude=1)  # excluding rest, rest_id=1
@@ -163,7 +163,7 @@ def load_train_and_test_old(n_subjects_train, n_subjects_test):
 
     for subject in range(1, n_subjects_train+n_subjects_test+1):
         if subject != 88 and subject != 89 and subject != 92 and subject != 100:
-            save_to = 'C:/Users/Acer/Documents/5.felev/pythonProject/datasets'
+            save_to = 'datasets'
             eegbci.load_data(subject, runs, save_to, verbose=0)  # downloading the files
             x_tmp_train = []
             y_tmp_train = []
@@ -174,7 +174,7 @@ def load_train_and_test_old(n_subjects_train, n_subjects_test):
             for record in runs:
                 s = '{:0>3}'.format(subject)
                 r = '{:0>2}'.format(record)
-                filepath = f'C:/Users/Acer/Documents/5.felev/pythonProject/datasets/MNE-eegbci-data/files/eegmmidb/1.0.0/S{s}/S{s}R{r}.edf'
+                filepath = f'datasets/MNE-eegbci-data/files/eegmmidb/1.0.0/S{s}/S{s}R{r}.edf'
                 raw = read_raw_edf(filepath, verbose=0)  # getting raw data
                 events, event_ids = mne.events_from_annotations(raw, verbose=0)  # events and their ids
                 events = mne.pick_events(events, exclude=1)  # excluding rest, rest_id=1
@@ -235,7 +235,7 @@ def load_train_and_test(n_subjects_train, n_subjects_test):
 
     for subject in range(1, n_subjects_train+n_subjects_test+1):
         if subject != 88 and subject != 89 and subject != 92 and subject != 100:
-            save_to = 'C:/Users/Acer/Documents/5.felev/pythonProject/datasets'
+            save_to = 'datasets'
             eegbci.load_data(subject, runs, save_to, verbose=0)  # downloading the files
             x_tmp_train = []
             y_tmp_train = []
@@ -246,7 +246,7 @@ def load_train_and_test(n_subjects_train, n_subjects_test):
             for record in runs:
                 s = '{:0>3}'.format(subject)
                 r = '{:0>2}'.format(record)
-                filepath = f'C:/Users/Acer/Documents/5.felev/pythonProject/datasets/MNE-eegbci-data/files/eegmmidb/1.0.0/S{s}/S{s}R{r}.edf'
+                filepath = f'datasets/MNE-eegbci-data/files/eegmmidb/1.0.0/S{s}/S{s}R{r}.edf'
                 raw = read_raw_edf(filepath, verbose=0)  # getting raw data
 
                 event_dict_raw = {
@@ -330,7 +330,7 @@ def load_cross_validation_old(n_folds):
 
     for subject in range(1, 110):
         if subject != 88 and subject != 89 and subject != 92 and subject != 100:
-            save_to = 'C:/Users/Acer/Documents/5.felev/pythonProject/datasets'
+            save_to = 'datasets'
             eegbci.load_data(subject, runs, save_to, verbose=0)  # downloading the files
 
             x_tmp = []  # contains the recordings of one subject
@@ -339,7 +339,7 @@ def load_cross_validation_old(n_folds):
             for record in runs:
                 s = '{:0>3}'.format(subject)
                 r = '{:0>2}'.format(record)
-                filepath = f'C:/Users/Acer/Documents/5.felev/pythonProject/datasets/MNE-eegbci-data/files/eegmmidb/1.0.0/S{s}/S{s}R{r}.edf'
+                filepath = f'datasets/MNE-eegbci-data/files/eegmmidb/1.0.0/S{s}/S{s}R{r}.edf'
                 raw = read_raw_edf(filepath, verbose=0)  # getting raw data
                 events, event_ids = mne.events_from_annotations(raw, verbose=0)  # events and their ids
                 events = mne.pick_events(events, exclude=1)  # excluding rest, rest_id=1
@@ -410,7 +410,7 @@ def load_cross_validation(n_folds):
 
     for subject in range(1, 110):
         if subject != 88 and subject != 89 and subject != 92 and subject != 100:
-            save_to = 'C:/Users/Acer/Documents/5.felev/pythonProject/datasets'
+            save_to = 'datasets'
             eegbci.load_data(subject, runs, save_to, verbose=0)  # downloading the files
 
             x_tmp = []  # contains the recordings of one subject
@@ -419,7 +419,7 @@ def load_cross_validation(n_folds):
             for record in runs:
                 s = '{:0>3}'.format(subject)
                 r = '{:0>2}'.format(record)
-                filepath = f'C:/Users/Acer/Documents/5.felev/pythonProject/datasets/MNE-eegbci-data/files/eegmmidb/1.0.0/S{s}/S{s}R{r}.edf'
+                filepath = f'datasets/MNE-eegbci-data/files/eegmmidb/1.0.0/S{s}/S{s}R{r}.edf'
                 raw = read_raw_edf(filepath, verbose=0)  # getting raw data
 
                 event_dict_raw = {
@@ -475,6 +475,11 @@ def load_cross_validation(n_folds):
             y.append(y_tmp)
 
     kf = KFold(n_splits=n_folds, random_state=None, shuffle=False)
+
+    # for i, (train_index, test_index) in enumerate(kf.split(x)):
+    #     print('Fold: ', i)
+    #     print('Train', train_index)
+    #     print('Test', test_index)
 
     for i, (train_index, test_index) in enumerate(kf.split(x)):
         x_train_tmp = []

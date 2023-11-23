@@ -68,8 +68,9 @@ class Network:
         self.model.compile(loss=keras.losses.categorical_crossentropy, optimizer=keras.optimizers.Adam(),
                            metrics=['accuracy'])
         self.model.summary()
-        self.model.fit(x_train, train_label, batch_size=self.batch_size, epochs=self.ep, verbose=1,
+        history = self.model.fit(x_train, train_label, batch_size=self.batch_size, epochs=self.ep, verbose=1,
                        validation_data=(x_valid, valid_label))
+        return history
 
     def evaluate(self, x_test, y_test_one_hot):
         test_loss, test_acc = self.model.evaluate(x_test, y_test_one_hot, verbose=1)

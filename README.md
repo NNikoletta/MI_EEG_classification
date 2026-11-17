@@ -73,12 +73,15 @@ Overall, the best performance was achieved by the two proposed models: the Multi
 To further investigate the MultiConvNetEEG networks’ performance Wilcoxon signed-rank test was performed, the calculated p-values are shown in Table 1. The results of two five-fold cross-validations were used to calculate the p-values. In case of the ShallowConvNet, EEGNet, MBEEGCBAM, and DSCNN the value is <0.05, this means that the proposed network performs statistically better.
  
 <img width="627" height="37" alt="wilcoxon" src="https://github.com/user-attachments/assets/b2524fbd-2563-47a5-98fe-64269171654a" />
+
 Table 1: Results of the Wilcoxon signed-rank test performed between the proposed MultiConvNetEEG and other networks.
  
 <img width="2633" height="1892" alt="resultsoverview" src="https://github.com/user-attachments/assets/16b91d18-d1ab-45d7-a401-0059be447cd4" />
+
 Figure 1: The achieved accuracy and runtime of each model.
  
 <img width="637" height="242" alt="resultsbymodel" src="https://github.com/user-attachments/assets/fc441b2e-cb4a-4b65-9336-97968398f5fc" />
+
 Table 2: Summary of the evaluation results by model. The best results are shown in bold.
  
 ## Thesis
